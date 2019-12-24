@@ -1,0 +1,2 @@
+file /etc/ppp/ppp-freemobile/options-freemobile
+connect "/usr/sbin/chat -v -t15 -f /etc/ppp/ppp-freemobile/freemobile.chat"

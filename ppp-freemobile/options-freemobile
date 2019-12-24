@@ -1,0 +1,17 @@
+ttyHS3
+115200
+lock
+crtscts
+modem
+passive
+novj
+defaultroute
+replacedefaultroute
+noipdefault
+usepeerdns
+noauth
+hide-password
+persist
+holdoff 10
+maxfail 10
+debug
