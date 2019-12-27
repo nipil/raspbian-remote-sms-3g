@@ -42,28 +42,34 @@ class App:
     REBOOT_TIMER_MINUTES = 5
     PPP_SETUP_GRACE_TIME_SECONDS = 60
 
-    def __init__(self, modem_device, modem_baud, modem_pin, ppp_provider, ppp_interface):
+
+    def __init__(self, modem_device, modem_baud, modem_pin, ppp_provider, ppp_interface, phone_number_override):
         self._pon_requested = False
         self._modem_device = modem_device
         self._modem_baud = modem_baud
         self._modem_pin = modem_pin
         self._ppp_provider = ppp_provider
         self._ppp_interface = ppp_interface
+        self._phone_number_override = phone_number_override
 
 
-    def handleSms(self, sms):
-        print("DEBUG: {} {}".format(sms.number, sms.text))
-        if sms.text == 'reboot':
-            sms.reply('Issuing reboot...')
-            process = Command('sudo reboot')
+    def _handleSms(self, sms):
+        # override phone number if requested
+        sms.number = self._phone_number_override or sms.number
+
+        #handle messages
+        if sms.text.startswith('!'):
+            command = sms.text[1:]
+            print(command)
+            process = Command(command)
             sms.reply("Result: {}\n{}\n{}".format(process.returncode, process.stdout, process.stderr))
 
         elif sms.text == 'getclock':
-            timestamp_utc = self.get_time_from_modem()
+            timestamp_utc = get_time_from_modem(sms.getModem())
             sms.reply("Result: {}".format(timestamp_utc))
 
         elif sms.text == 'setclock':
-            timestamp_utc = self.get_time_from_modem()
+            timestamp_utc = get_time_from_modem(sms.getModem())
             # set clock only if recent
             if timestamp_utc.startswith("20"):
                 sms.reply('Setting clock to UTC timestamp {} ...'.format(timestamp_utc))
@@ -71,10 +77,6 @@ class App:
                 sms.reply("Result: {}\n{}\n{}".format(process.returncode, process.stdout, process.stderr))
             else:
                 sms.reply('Result: timestamp {} is too old'.format(timestamp_utc))
-
-        elif sms.text == 'ip link' or sms.text == 'ip addr' or sms.text == 'ip route' or sms.text == 'poff':
-            process = Command(sms.text)
-            sms.reply("Result: {}\n{}\n{}".format(process.returncode, process.stdout, process.stderr))
 
         elif sms.text == 'ping':
             sms.reply("pong")
@@ -92,7 +94,7 @@ class App:
     def process_sms(self):
         self._pon_requested = False
         # handle SMS
-        modem = GsmModem(self._modem_device, self._modem_baud, smsReceivedCallbackFunc=self.handleSms)
+        modem = GsmModem(self._modem_device, self._modem_baud, smsReceivedCallbackFunc=self._handleSms)
         modem.connect(self._modem_pin)
         modem.smsTextMode = False
         modem.processStoredSms()
@@ -135,11 +137,13 @@ def main():
     parser.add_argument("modem_device")
     parser.add_argument("--baud", default=115200)
     parser.add_argument("--pin", default=None)
+    parser.add_argument("--phone-number-override", default=None)
+
     parser.add_argument("ppp_provider")
     parser.add_argument("ppp_interface")
     args = parser.parse_args()
 
-    app = App(args.modem_device, args.baud, args.pin, args.ppp_provider, args.ppp_interface)
+    app = App(args.modem_device, args.baud, args.pin, args.ppp_provider, args.ppp_interface, args.phone_number_override)
     app.run()
 
 
