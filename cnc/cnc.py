@@ -62,6 +62,12 @@ class App:
         self._ppp_interface = ppp_interface
         self._phone_number_override = phone_number_override
 
+    def set_clock_from_network(self, modem):
+        timestamp_utc = get_time_from_modem(modem)
+        # set clock only if recent
+        if timestamp_utc.startswith("20"):
+            process = Command("sudo date -u -s '{}'".format(timestamp_utc))
+        return timestamp_utc
 
     def _handleSms(self, sms):
         # override phone number if requested
@@ -75,14 +81,10 @@ class App:
             sms.reply("Result: {}\n{}\n{}".format(process.returncode, process.stdout, process.stderr))
 
         elif sms.text == 'setclock':
-            timestamp_utc = get_time_from_modem(sms.getModem())
-            # set clock only if recent
-            if timestamp_utc.startswith("20"):
-                sms.reply('Setting clock to UTC timestamp {} ...'.format(timestamp_utc))
-                process = Command("sudo date -u -s '{}'".format(timestamp_utc))
-                sms.reply("Result: {}\n{}\n{}".format(process.returncode, process.stdout, process.stderr))
-            else:
-                sms.reply('Result: timestamp {} is too old'.format(timestamp_utc))
+            prev = Command("date").stdout
+            utc_ts = self.set_clock_from_network(sms.getModem())
+            cur = Command("date").stdout
+            sms.reply("Host clock before: {}\nUTC timestamp from modem: {}\nHost clock after: {}".format(prev, utc_ts, cur))
 
         elif sms.text == 'pon':
             self._pon_requested = True
@@ -92,20 +94,6 @@ class App:
             # if reboot cannot be planned, cancel bringing connection
             if process.returncode != 0:
                 self._pon_requested = False
-
-
-    def process_sms(self):
-        self._pon_requested = False
-        # handle SMS
-        modem = GsmModem(self._modem_device, self._modem_baud, smsReceivedCallbackFunc=self._handleSms)
-        modem.connect(self._modem_pin)
-        modem.smsTextMode = False
-        modem.processStoredSms()
-        try:
-            modem.rxThread.join(1)
-        finally:
-            modem.close()
-
 
     def _wait_for_default_route_via_ppp(self):
         for i in range(self.PPP_SETUP_GRACE_TIME_SECONDS):
@@ -161,7 +149,26 @@ class App:
 
 
     def run(self):
-        self.process_sms()
+
+        # initialize modem
+        modem = GsmModem(self._modem_device, self._modem_baud, smsReceivedCallbackFunc=self._handleSms)
+        modem.connect(self._modem_pin)
+
+        # try to sycn clock with GSM network time
+        self.set_clock_from_network(modem)
+
+        # handle SMS
+        self._pon_requested = False
+        modem.smsTextMode = False
+        modem.processStoredSms()
+
+        # wait for completion
+        try:
+            modem.rxThread.join(1)
+        finally:
+            modem.close()
+
+        # handle asynchronous sms request
         if self._pon_requested:
             self._pon_requested = False
             self.setup_connection()
