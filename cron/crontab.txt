@@ -1,0 +1,8 @@
+# watchdog for pppd
+15 * * * * sudo killall --quiet --exact pppd
+
+# watchdog for standard problems
+* 4,10,16,22 * * * sudo reboot
+
+# safe execution of cron every minute
+* * * * * flock --exclusive --nonblock --conflict-exit-code=125 /tmp/raspbian-remote-sms-3g-cron.flock -c 'timeout --signal=SIGTERM --kill-after=5 45 /usr/local/bin/raspbian-remote-sms-3g-cron.sh 2>/dev/null 1>/dev/null'

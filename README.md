@@ -8,3 +8,4 @@ go to the following folders, open README.txt, change configs according to your n
  2) systemd-networkd
  3) ppp
  4) cnc
+ 5) cron
