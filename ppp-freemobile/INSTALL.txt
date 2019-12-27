@@ -1,9 +1,0 @@
-sudo ln -s $PWD/ppp-freemobile/ /etc/ppp/
-sudo ln -s /etc/ppp/ppp-freemobile/freemobile /etc/ppp/peers/freemobile
-
-change modem device on first line of options file
-
-start with 'pon'
-check routing table with 'ip route' default route should go throug ppp0
-test real connectivity with 'ping 8.8.8.8'
-stop with 'poff'
