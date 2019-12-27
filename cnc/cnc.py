@@ -35,13 +35,23 @@ class Command:
         self.stdout = self.process.stdout
         self.stderr = self.process.stderr
         self.returncode = self.process.returncode
+        print("Command returned '{}' for '{}'\nStdout:\n{}\nStderr:\n{}".format(self.process.returncode, text, self.process.stdout, self.process.stderr))
+
+
+class NoPppDefaultRouteException(Exception):
+    pass
+
+
+class NoConnectivityException(Exception):
+    pass
 
 
 class App:
 
-    REBOOT_TIMER_MINUTES = 5
+    REBOOT_TIMER_MINUTES = 10
     PPP_SETUP_GRACE_TIME_SECONDS = 60
-
+    PING_GRACE_TIME_SECONDS = 60
+    PING_TARGET = "8.8.8.8" # google dns
 
     def __init__(self, modem_device, modem_baud, modem_pin, ppp_provider, ppp_interface, phone_number_override):
         self._pon_requested = False
@@ -64,10 +74,6 @@ class App:
             process = Command(command)
             sms.reply("Result: {}\n{}\n{}".format(process.returncode, process.stdout, process.stderr))
 
-        elif sms.text == 'getclock':
-            timestamp_utc = get_time_from_modem(sms.getModem())
-            sms.reply("Result: {}".format(timestamp_utc))
-
         elif sms.text == 'setclock':
             timestamp_utc = get_time_from_modem(sms.getModem())
             # set clock only if recent
@@ -77,9 +83,6 @@ class App:
                 sms.reply("Result: {}\n{}\n{}".format(process.returncode, process.stdout, process.stderr))
             else:
                 sms.reply('Result: timestamp {} is too old'.format(timestamp_utc))
-
-        elif sms.text == 'ping':
-            sms.reply("pong")
 
         elif sms.text == 'pon':
             self._pon_requested = True
@@ -104,23 +107,56 @@ class App:
             modem.close()
 
 
-    def setup_connection(self):
-        # initiate modem connection
+    def _wait_for_default_route_via_ppp(self):
+        for i in range(self.PPP_SETUP_GRACE_TIME_SECONDS):
+            process = Command("ip route")
+            if process.returncode != 0:
+                raise NoPppDefaultRouteException()
+            # search for appropriate default route entry
+            r = re.compile('default\s+dev\s+{}'.format(self._ppp_interface))
+            for route in process.stdout.splitlines():
+                if r.match(route):
+                    return
+            time.sleep(1)
+        raise NoPppDefaultRouteException()
+
+
+    def _start_ppp(self):
         process = Command("sudo pon {}".format(self._ppp_provider))
         if process.returncode != 0:
-            print("pon returned {} with stdout {} and stderr {}".format(process.returncode, process.stdout, process.stderr))
-            process = Command("sudo poff")
-            print("poff returned {} with stdout {} and stderr {}".format(process.returncode, process.stdout, process.stderr))
-            return
-        # wait check for default route
-        for i in range(self.PPP_SETUP_GRACE_TIME_SECONDS):
-            print("getroute {}".format(i))
-            process = Command("ip route")
-            # TODO: on error do poff
-            print("'ip route' returned {} with stdout {} and stderr {}".format(process.returncode, process.stdout, process.stderr))
-            print("wait")
+            self._stop_ppp()
+
+
+    def _stop_ppp(self):
+        process = Command("sudo poff {}".format(self._ppp_provider))
+
+
+    def _wait_for_icmp_connectivity(self):
+        for i in range(self.PING_GRACE_TIME_SECONDS):
+            process = Command("ping -w 3 -i 1 {}".format(self.PING_TARGET))
+            if process.returncode == 0:
+                return
             time.sleep(1)
-        # TODO: check for real working ping
+        raise NoConnectivityException()
+
+
+    def setup_connection(self):
+        # initiate modem connection
+        self._start_ppp()
+        # wait check for default route
+        try:
+            self._wait_for_default_route_via_ppp()
+        except NoPppDefaultRouteException:
+            print("no default route found, stopping pppd and exiting")
+            self._stop_ppp()
+            return
+        # check for real connectivity
+        try:
+            self._wait_for_icmp_connectivity()
+        except NoConnectivityException:
+            print("no internet connectivity, stopping pppd and exiting")
+            self._stop_ppp()
+            return
         # TODO: initiate VPN
 
 
