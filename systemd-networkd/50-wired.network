@@ -1,0 +1,17 @@
+[Match]
+Name=eth0
+
+[Network]
+Address=192.168.254.1/24
+LinkLocalAddressing=no
+DHCPServer=yes
+DHCP=no
+IPMasquerade=yes
+IPForward=ipv4
+
+[DHCPServer]
+EmitDNS=yes
+DNS=8.8.8.8
+PoolSize=10
+PoolOffset=200
+
