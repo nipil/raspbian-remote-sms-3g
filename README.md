@@ -1,8 +1,11 @@
 # raspbian-remote-sms-3g
 
+everything is setup and running using user `pi`
+
+
 ## initialize
 
-install a blank raspbian-lite (buster) on a clean sd card
+install a blank raspbian-lite (buster) on a clean sd card, and boot it
 
 then start locally with :
 
@@ -53,7 +56,9 @@ disable unused sytemd services :
 update packages
 
 	sudo apt-get update
+	sudo apt-get install busybox-syslogd
 	sudo apt-get install git screen vim tcpdump python3-venv ppp wpasupplicant
+	sudo apt-get install at --no-install-recommends
 	sudo apt-get upgrade
 	sudo apt-get dist-upgrade
 	sudo apt-get autoremove --purge

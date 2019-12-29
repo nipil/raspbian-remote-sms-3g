@@ -1,8 +1,9 @@
 # watchdog for pppd
-15 * * * * sudo killall --quiet --exact pppd
+@hourly sudo killall --quiet --exact pppd 2>/dev/null 1>/dev/null
 
 # watchdog for standard problems
-* 4,10,16,22 * * * sudo reboot
+@reboot sudo shutdown -r +1440
+@hourly echo "sudo reboot" | at -M now + 24 hours
 
 # safe execution of cron every minute
 * * * * * flock --exclusive --nonblock --conflict-exit-code=125 /tmp/raspbian-remote-sms-3g-cron.flock -c 'timeout --signal=SIGTERM --kill-after=5 45 /usr/local/bin/raspbian-remote-sms-3g-cron.sh 2>/dev/null 1>/dev/null'
