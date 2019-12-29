@@ -6,4 +6,5 @@ PERMS=600
 
 sudo apt-get install wpasupplicant && \
 sudo cp -v ${NAME} ${TARGET}/${NAME} && \
-sudo chmod -v ${PERMS} ${TARGET}/${NAME}
+sudo chmod -v ${PERMS} ${TARGET}/${NAME} && \
+sudo systemctl restart wpa_supplicant.service
