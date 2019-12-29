@@ -10,6 +10,7 @@ install a blank raspbian-lite (buster) on a clean sd card, and boot it
 then start locally with :
 
 	sudo dpkg-reconfigure keyboard-configuration
+	sudo dpkg-reconfigure tzdata
 	sudo reboot
 
 then setup systemd-networkd config files to access a network, then :
@@ -80,3 +81,9 @@ for each :
 - open and read content of README.txt
 - change configs according to your needs
 - run INSTALL.sh
+
+## finally, if you want to turn your sd-card read-only
+
+modify /etc/resolv.conf to hard-code google dns (8.8.8.8) as resolvers
+
+turn your /boot and /root partition read-only, adding 'ro' flag to /etc/fstab if you want
